@@ -16,6 +16,9 @@ This toolkit provides two main security testing tools for ONVIF devices:
 - **Comprehensive Security Detection**: Detects unauthenticated access even when requests fail due to parameter validation (e.g., invalid tokens)
 - **Enhanced Reporting**: Categorizes results by fault type with detailed verbose output including SOAP fault codes
 
+## Installation
+python3 setup.py install
+
 ## Usage
 
 ### wsdiscovery
