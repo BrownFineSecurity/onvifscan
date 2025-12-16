@@ -671,7 +671,20 @@ def parse_profiles(response_text: str) -> List[str]:
     return profile_tokens
 
 
-def scan_onvif_device(base_url: str, test_all: bool = False, timeout: float = 5.0, verbose: bool = False) -> Dict[str, Any]:
+def parse_uris(response_text: str) -> List[str]:
+    """Parse URIs from SOAP response XML."""
+    uris = []
+    try:
+        root = ET.fromstring(response_text)
+        for uri_elem in root.iter():
+            if 'Uri' in uri_elem.tag and uri_elem.text:
+                uris.append(uri_elem.text.strip())
+    except ET.ParseError:
+        pass
+    return uris
+
+
+def scan_onvif_device(base_url: str, test_all: bool = False, timeout: float = 5.0, verbose: bool = False, urls_only: bool = False) -> Dict[str, Any]:
     """Core ONVIF scanning logic."""
     base_url = base_url.rstrip('/')
 
@@ -820,6 +833,8 @@ def scan_onvif_device(base_url: str, test_all: bool = False, timeout: float = 5.
                 result_msg = f"failed: {response['content'][:50]}..."
             security_issue = False
 
+        parsed_uris = parse_uris(response["content"]) if urls_only else []
+
         results.append({
             "name": req["name"],
             "status_code": response["status_code"] or "ERROR",
@@ -828,7 +843,8 @@ def scan_onvif_device(base_url: str, test_all: bool = False, timeout: float = 5.
             "endpoint": url,
             "security_issue": security_issue,
             "fault_info": fault_info,
-            "response_content": response["content"] if verbose or len(response["content"]) < 1000 else response["content"][:1000] + "..."
+            "response_content": response["content"] if verbose or len(response["content"]) < 1000 else response["content"][:1000] + "..." if not urls_only else str(parsed_uris),
+            "parsed_uris": parsed_uris
         })
 
     # Group results by status code for summary
@@ -860,9 +876,10 @@ def run_auth_scan(config: 'ToolConfig') -> 'ToolResult':
         test_all = config.custom_args.get('all', False)
         timeout = config.timeout or 5.0
         verbose = config.verbose
+        urls_only = config.custom_args.get('u', False)
 
         # Perform scanning
-        scan_result = scan_onvif_device(config.input_path, test_all, timeout, verbose)
+        scan_result = scan_onvif_device(config.input_path, test_all, timeout, verbose, urls_only)
 
         execution_time = time.time() - start_time
 
@@ -875,7 +892,8 @@ def run_auth_scan(config: 'ToolConfig') -> 'ToolResult':
                 'security_issues_count': len(scan_result.get('security_issues', [])),
                 'endpoints_discovered': len(scan_result.get('endpoints_discovered', {})),
                 'target_url': config.input_path,
-                'test_all': test_all
+                'test_all': test_all,
+                'urls_only': urls_only
             },
             execution_time=execution_time
         )

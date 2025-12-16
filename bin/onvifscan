@@ -20,8 +20,9 @@ import xml.etree.ElementTree as ET
 class OnvifScanOutputFormatter(OutputFormatter):
     """Custom output formatter for onvifscan results."""
 
-    def __init__(self, verbose=False):
+    def __init__(self, verbose=False, urls_only=False):
         self.verbose = verbose
+        self.urls_only = urls_only
 
     def format_result(self, result: ToolResult, format_type: str) -> str:
         """Override to handle verbose output."""
@@ -97,7 +98,7 @@ class OnvifScanOutputFormatter(OutputFormatter):
                     lines.append(f"  {color}{auth_indicator} {result_item['name']}: {result_item['result']}{Fore.RESET}")
 
                     # Add verbose output - fault info and response content
-                    if self.verbose:
+                    if self.verbose or self.urls_only:
                         fault_info = result_item.get("fault_info", {})
                         if fault_info.get("is_fault"):
                             lines.append(Fore.MAGENTA + f"    SOAP Fault Details:" + Fore.RESET)
@@ -108,7 +109,7 @@ class OnvifScanOutputFormatter(OutputFormatter):
                                 lines.append(f"      Fault Reason: {fault_info.get('fault_reason')}")
                             lines.append("")
 
-                        if "response_content" in result_item and result_item["response_content"]:
+                        if "response_content" in result_item and result_item["response_content"] and result_item["response_content"].strip() not in ["", "[]"]:
                             lines.append(Fore.MAGENTA + f"    Response Content:" + Fore.RESET)
                             content = result_item["response_content"]
                             lines.extend([f"    {line}" for line in content.split('\n') if line.strip()])
@@ -281,6 +282,7 @@ def main():
     auth_parser.add_argument("url", help="Base URL of the ONVIF device")
     auth_parser.add_argument("-v", "--verbose", action="store_true", help="Show full response content")
     auth_parser.add_argument("-a", "--all", action="store_true", help="Test all endpoints including destructive")
+    auth_parser.add_argument("-u", "--urls-only", action="store_true", help="Print only parsed URLs from responses")
     auth_parser.add_argument("--format", choices=['text', 'json', 'quiet'], default='text', help="Output format")
 
     # Brute subcommand
@@ -303,7 +305,7 @@ def main():
         input_paths=[url],
         output_format=args.format,
         verbose=getattr(args, 'verbose', False),
-        custom_args={'all': getattr(args, 'all', False)}
+        custom_args={'all': getattr(args, 'all', False), 'u': getattr(args, 'urls_only', False)}
     )
 
     # Execute based on subcommand
@@ -320,7 +322,7 @@ def main():
         return 1
 
     # Format and output result
-    formatter = OnvifScanOutputFormatter(verbose=config.verbose)
+    formatter = OnvifScanOutputFormatter(verbose=config.verbose, urls_only=config.custom_args.get('u', False))
     output = formatter.format_result(result, config.output_format)
     if output:
         print(output)

@@ -50,6 +50,9 @@ onvifscan auth http://192.168.1.100 -a
 
 # JSON output
 onvifscan auth http://192.168.1.100 --format json
+
+# Display URLs like GetSnapshotUri or GetStreamUri
+onvifscan auth http://192.168.1.100 -u
 ```
 
 #### Credential Brute-forcing
